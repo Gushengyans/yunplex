@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0](https://github.com/awillheartwu/yunplex/compare/v1.0.4...v2.0.0) (2025-06-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* 去除登录
+
+* [新增功能](sync): 去除登录，直接校验cookie；支持调整音质 ([ad819ec](https://github.com/awillheartwu/yunplex/commit/ad819ec600b0b9adef8b9305f84e1966a7373d70))
+
 ### [1.0.4](https://github.com/awillheartwu/yunplex/compare/v1.0.3...v1.0.4) (2024-07-06)
 
 ### [1.0.3](https://github.com/awillheartwu/yunplex/compare/v1.0.2...v1.0.3) (2023-10-18)

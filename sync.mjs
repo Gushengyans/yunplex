@@ -10,7 +10,7 @@ import NodeID3 from 'node-id3';
 import flacMetadata from 'metaflac-js';
 import dayjs from 'dayjs';
 import pkg from 'NeteaseCloudMusicApi';
-const { login_cellphone, lyric_new, user_playlist, /* playlist_detail, */ song_url_v1 } = pkg;
+const { login_status, lyric_new, user_playlist, song_url_v1 } = pkg;
 
 const NodeID3tag = NodeID3.Promise;
 const db = new Datastore({ filename: './music.db', autoload: true });
@@ -19,17 +19,44 @@ const db = new Datastore({ filename: './music.db', autoload: true });
 const SCAN_INTERVAL = process.env.SCAN_INTERVAL ?? 30;
 const SONG_LIMIT = process.env.SONG_LIMIT ?? 10;
 const DOWNLOAD_DIR = process.env.DOWNLOAD_DIR ?? '/mnt/nas';
-const PHONE = process.env.PHONE;
-const PASSWORD = process.env.PASSWORD;
 const PLAYLIST = process.env.PLAYLIST;
 const PLEX_SERVER = process.env.PLEX_SERVER;
 const PLEX_PORT = process.env.PLEX_PORT;
 const PLEX_TOKEN = process.env.PLEX_TOKEN;
 const PLEX_SECTION = process.env.PLEX_SECTION ?? '音乐';
+const YUN_COOKIE = process.env.YUN_COOKIE;
+const LEVEL_ENUM = {
+    标准: 'standard',
+    较高: 'higher',
+    极高: 'exhigh',
+    无损: 'lossless',
+    'Hi-Res': 'hires',
+    高清环绕声: 'jyeffect',
+    沉浸环绕声: 'sky',
+    超清母带: 'jymaster',
+};
+const LEVEL = LEVEL_ENUM[process.env?.LEVEL] ?? 'jymaster'; // 默认使用超清母带
 
-async function loginYun(phone, password) {
-    const result = await login_cellphone({ phone, password });
-    return result.body;
+async function checkCookieValid(cookie) {
+    try {
+        const res = await login_status({ cookie: cookie });
+        const data = res?.body?.data;
+        if (data?.code !== 200) {
+            console.warn('⚠️ 网易云 cookie 可能已失效，请重新抓取 YUN_COOKIE');
+        } else {
+            console.log('✅ 网易云 cookie 正常');
+            // 将 cookie 存入数据库
+            await db.insertAsync({
+                type: 'user',
+                user: data?.profile,
+                uid: data?.profile?.userId,
+                cookie: YUN_COOKIE,
+                token: data?.token,
+            });
+        }
+    } catch (e) {
+        console.warn('⚠️ 无法验证网易云 cookie 状态', e.message);
+    }
 }
 
 async function getUserInput(prompt) {
@@ -119,20 +146,8 @@ async function setupDB() {
         const user = await db.findAsync({ type: 'user' });
         // 如果没有用户信息，进入初始化流程
         if (user.length === 0) {
-            // 如果没有用户信息，则通过获得用户命令行的信息，登录云音乐
-            const phone = PHONE ?? (await getUserInput('请输入登录网易云的手机号: '));
-            const password = PASSWORD ?? (await getUserInput('请输入登录网易云的密码: '));
-            const user = await loginYun(phone, password);
-            // 将用户信息存入数据库
-            await db.insertAsync({
-                type: 'user',
-                user: user.profile,
-                uid: user.profile.userId,
-                cookie: user.cookie,
-                token: user.token,
-                phone,
-                password,
-            });
+            const yunCookie = YUN_COOKIE ?? (await getUserInput('请输入网易云音乐的 cookie: '));
+            await checkCookieValid(yunCookie);
         }
 
         // 查看数据库中是否有歌单信息
@@ -223,6 +238,9 @@ async function setupDB() {
 
 async function sync(client, selectName, machineId, selectPlaylist, section) {
     console.log('♿️ - file: sync.mjs:32 - main - sync - 开始同步');
+    // 检查 cookie 是否有效
+    const user = await db.findAsync({ type: 'user' });
+    await checkCookieValid(user[0]?.cookie);
     // 初始化获取两边歌单
     const playlistDetail = await fetch(`https://music.163.com/api/v1/playlist/detail?id=${selectName}`);
     const playlistDetailBody = await playlistDetail.json();
@@ -274,7 +292,6 @@ async function sync(client, selectName, machineId, selectPlaylist, section) {
     const slicePlexSongs = plexSongs.slice(0, plexLastIndex + 1);
 
     // 给云音乐的歌曲设置标识，如果plex中有，则不同步
-    const user = await db.findAsync({ type: 'user' });
     const syncSongs = await Promise.all(
         songNamesBodySongs.map(async (item) => {
             if (slicePlexSongs.includes(item.name)) {
@@ -283,14 +300,14 @@ async function sync(client, selectName, machineId, selectPlaylist, section) {
                 item.sync = false;
                 console.log('♿️ - file: sync.mjs:32 - main - item:', item.name);
                 let song = {};
-                song = await song_url_v1({ id: item.id, level: 'jymaster', cookie: user[0].cookie });
+                song = await song_url_v1({ id: item.id, level: LEVEL, cookie: user[0]?.cookie });
                 let songBody = song.body;
                 if (songBody.data[0].type !== 'flac' && songBody.data[0].type !== 'mp3') {
-                    song = await song_url_v1({ id: item.id, level: 'hires', cookie: user[0].cookie });
+                    song = await song_url_v1({ id: item.id, level: 'hires', cookie: user[0]?.cookie });
                     songBody = song.body;
                 }
                 // 下载歌曲
-                await download(songBody.data[0].url, item, songBody.data[0].type, user[0].cookie);
+                await download(songBody.data[0].url, item, songBody.data[0].type, user[0]?.cookie);
             }
             return item;
         }),
@@ -416,7 +433,7 @@ async function main() {
             await sync(client, selectName, machineId, selectPlaylist, selectPlex?.section);
         }, intervalInMilliseconds);
     } catch (error) {
-        console.log(error);
+        console.log('e', error);
     }
 }
 

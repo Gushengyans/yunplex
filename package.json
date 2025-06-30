@@ -5,7 +5,7 @@
     "private": true,
     "dependencies": {
         "@seald-io/nedb": "^4.0.2",
-        "NeteaseCloudMusicApi": "^4.12.2",
+        "NeteaseCloudMusicApi": "4.27.0",
         "dayjs": "^1.11.10",
         "metaflac-js": "^1.0.5",
         "music-metadata": "^8.1.4",

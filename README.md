@@ -31,7 +31,24 @@ $ npm install # 或者使用 yarn cnpm pnpm 随你的大小便
 ```
 
 ## 使用方法
-
+**注意1**: 目前网易云风控，手机号和密码登录很大程度会失败，所以修改为cookie登录
+```bash
+# 目前网易云风控，手机号和密码登录很大程度会失败，所以修改为cookie登录
+# 请在网页端登录网易云音乐，打开开发者工具，找到cookie，将MUSIC_U __csrf NMTID（可选）字段组合成字符串填入以下需要的cookie中
+MUSIC_U=xxx; __csrf=xxx; NMTID=xxx
+# 注意每项之间是用 分号+空格 分隔。
+```
+**注意2**: 下载的音乐品质对应表
+| 音质品级   | 说明     |
+| ---------- | -------- |
+| 标准       | standard |
+| 较高       | higher   |
+| 极高       | exhigh   |
+| 无损       | lossless |
+| Hi-Res     | hires    |
+| 高清环绕声 | jyeffect |
+| 沉浸环绕声 | sky      |
+| 超清母带   | jymaster |
 ### 本地部署版本
 
 ```bash
@@ -39,13 +56,12 @@ $ node sync.mjs # 可以添加第二个参数，代表要同步的网易云歌�
 ```
 
 初次调用会询问
-1. 请输入登录网易云的手机号:
-2. 请输入登录网易云的密码:
-3. 请输入Plex的地址:
-4. 请输入Plex的端口:
-5. 请输入Plex的token:
-6. 请输入Plex的音乐库名称:
-7. _（如果在启动时没有输入第二个参数）_ 请输入要同步的网易云歌单的id: 
+1. 请输入网易云音乐的 cookie: 
+2. 请输入Plex的地址:
+3. 请输入Plex的端口:
+4. 请输入Plex的token:
+5. 请输入Plex的音乐库名称:
+6. _（如果在启动时没有输入第二个参数）_ 请输入要同步的网易云歌单的id: 
 
 输入后会打印plex和网易云的歌单列表，选择要同步的歌单的序号，回车即可开始同步
 
@@ -61,14 +77,15 @@ $ docker run -d --name yunplex yunplex  \
     -e SCAN_INTERVAL=30 \ # 轮询间隔，单位分钟 
     -e SONG_LIMIT=10 \ # 对比歌单的歌曲数量
     -e DOWNLOAD_DIR=/mnt/nas \ # 下载歌曲到docker内部的目录
-    -e PHONE=your_phone \ # 网易云账号
-    -e PASSWORD=your_password \ # 网易云密码
     -e PLAYLIST=your_playlist \ # 要同步的网易云歌单id
     -e PLEX_SERVER=your_plex_server \ # Plex服务器地址
     -e PLEX_PORT=your_plex_port \ # Plex服务器端口
     -e PLEX_TOKEN=your_plex_token \ # Plex服务器token
     -e PLEX_SECTION=your_plex_section \ # 你的Plex音乐库的名称
+    -e YUN_COOKIE="MUSIC_U=xxx; __csrf=xxx; NMTID=xxx" \ # 网易云音乐的cookie
+    -e LEVEL="超清母带" \ #  下载的音乐音质品级，详情见上面的表
     -v /mnt/nas:/mnt/nas \ # 冒号前面是宿主机的目录（也就是你plex音乐库的目录），冒号后面是docker内部的目录
+    # -v $(pwd)/data/music.db:/app/music.db \ # 可选项 把数据库文件挂载到宿主机上，方便查看和备份
 ```
 
 
@@ -79,6 +96,7 @@ e.g. 比如你的网易云用户名为:ABC,那么你需要在 PLEX 中新建一�
 
 ## TODO
 
+  - [x] 支持音质选择
   - [ ] 支持QQ音乐
   - [ ] 判断新添加的歌曲是否已经在Plex的音乐库中，如果在就不下载，而是直接添加到歌单中
   - [ ] 支持修改下载后的目录格式（歌手/专辑.年份/序号 - 歌名.格式）
@@ -89,6 +107,7 @@ e.g. 比如你的网易云用户名为:ABC,那么你需要在 PLEX 中新建一�
   - [ ] 优化日志
   - [ ] 优化下载逻辑
   - [ ] 优化同步逻辑
+  - [ ] 下载之前先判断一遍库里是否有这首歌，如果有就不下载
 
 ## 贡献和灵感
 
